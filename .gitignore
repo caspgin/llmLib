@@ -1,0 +1,48 @@
+# Visual Studio
+.vs/
+.vscode/
+build
+.clang-format
+.cache/
+
+
+# Build artifacts for various compilers
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.so
+*.a
+*.pdb
+
+# CMake
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# C++ precompiled headers
+*.pch
+*.gch
+
+# IDEs
+# CLion
+.idea/
+# Eclipse
+.project
+.cproject
+.settings/
+# VS Code
+.vscode/
+
+# Other temporary files
+*~
+*.log
+*.tmp
+*.bak
+
