@@ -6,7 +6,7 @@ setlocal enableDelayedExpansion
 set "CLEAN=%1"
 set "PROJECT_ROOT=./"
 set "BUILD_DIR=%PROJECT_ROOT%\build"
-set "APP_NAME=TerminalTextEditorWindows"
+set "APP_NAME=llm_test_app"
 
 echo ====================================
 echo Starting Build and Run Process
@@ -45,6 +45,7 @@ if /I "%CLEAN%" == "clean" (
 echo Configuring CMake...
 pushd "%BUILD_DIR%"
 rem The crucial part: -G "Ninja" and assuming MSVC compiler is in PATH (from Dev Cmd Prompt)
+set "OPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64"
 cmake .. -G "Ninja"
 if %errorlevel% neq 0 (
     echo ERROR: CMake configuration failed.
