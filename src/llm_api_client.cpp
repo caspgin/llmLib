@@ -1,60 +1,58 @@
 #include "llm_api_client.h"
-
+#include "nlohmann/json_fwd.hpp"
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
 #define CPPHTTBLIB_OPENSSL_SUPPORT
 #include "httplib.h"
-// std::string CreatePromptJson(std::string &prompt) { std::string outJson;
-//
-//
+#include "nlohmann/json.hpp"
 
 const std::string ENV_VAR_NAME = "GEMINI_API_KEY";
 
 std::string GetApiKey() {
-    const char* enviKey = std::getenv(ENV_VAR_NAME.c_str());
+  const char *enviKey = std::getenv(ENV_VAR_NAME.c_str());
 
-    if (enviKey == nullptr || std::string(enviKey).length() == 0) {
-        throw std::runtime_error("Did not find environment key. Please a \"" +
-                                 ENV_VAR_NAME +
-                                 "\" environment vairable for your AI key.\n");
-    }
+  if (enviKey == nullptr || std::string(enviKey).length() == 0) {
+    throw std::runtime_error("Did not find environment key. Please a \"" +
+                             ENV_VAR_NAME +
+                             "\" environment vairable for your AI key.\n");
+  }
 
-    return std::string(enviKey);
+  return std::string(enviKey);
 }
 
-void CallGemini() {
-    const std::string apiKey = GetApiKey();
+std::string CallGemini(const std::string &prompt) {
+  const std::string APIKEY = GetApiKey();
+  const std::string LLM_DOMAIN = "generativelanguage.googleapis.com";
+  const std::string LLM_PATH =
+      "/v1beta/models/gemini-2.0-flash:generateContent";
 
-    httplib::SSLClient cli("generativelanguage.googleapis.com");
+  httplib::SSLClient cli(LLM_DOMAIN);
 
-    // Step 3: Set up the headers, including Content-Type and the API key.
-    httplib::Headers headers = {{"Content-Type", "application/json"},
-                                {"X-goog-api-key", apiKey}};
+  httplib::Headers headers = {{"Content-Type", "application/json"},
+                              {"X-goog-api-key", APIKEY}};
 
-    // Step 4: Define the JSON payload for the POST request.
-    // This is the same data as in your curl command.
-    std::string jsonBody = R"({
-            "contents":[
-                {"parts" : [{"text": "Explain How Ai works in one sentence"}]}
-            ]
-        })";
-
-    // Step 5: Make a POST request with the specified path, headers, and body.
-    // The path is everything after the host name in the URL.
-    std::string path = "/v1beta/models/gemini-2.0-flash:generateContent";
-    if (auto res =
-            cli.Post(path.c_str(), headers, jsonBody, "application/json")) {
-        if (res->status == 200) {
-            std::cout << "Status: " << res->status << std::endl;
-            std::cout << "Body: " << res->body << std::endl;
-        } else {
-            std::cerr << "HTTP Error: " << res->status << std::endl;
-            std::cerr << "Response Body: " << res->body << std::endl;
-        }
+  nlohmann::json jsonBody;
+  jsonBody["contents"] = {{{"parts", {{"text", prompt}}}}};
+  std::string responseText = "";
+  if (auto res = cli.Post(LLM_PATH.c_str(), headers, jsonBody.dump(),
+                          "application/json")) {
+    if (res->status == 200) {
+      try {
+        nlohmann::json response = nlohmann::json::parse(res->body);
+        return response["candidates"][0]["content"]["parts"][0]["text"];
+      } catch (const nlohmann::json::parse_error &e) {
+        std::string error = "Parsing Error: " + std::string(e.what());
+        throw CustomError(error, "Parsing Error");
+      }
     } else {
-        auto err = res.error();
-        std::cerr << "Connection Error: " << httplib::to_string(err)
-                  << std::endl;
+      throw CustomError(std::to_string(res->status), "ResponseError");
     }
+  } else {
+    auto err = res.error();
+    std::string except = "Connection Error: " + httplib::to_string(err);
+    throw CustomError(except, "Connection Error");
+  }
+
+  return responseText;
 }

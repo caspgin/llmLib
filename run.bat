@@ -45,8 +45,7 @@ if /I "%CLEAN%" == "clean" (
 echo Configuring CMake...
 pushd "%BUILD_DIR%"
 rem The crucial part: -G "Ninja" and assuming MSVC compiler is in PATH (from Dev Cmd Prompt)
-set "OPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64"
-cmake .. -G "Ninja"
+cmake .. -G "Ninja" 
 if %errorlevel% neq 0 (
     echo ERROR: CMake configuration failed.
     echo Please ensure you are running this .bat file from a "Developer Command Prompt for VS" or that your C++ compiler is in your PATH.
