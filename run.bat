@@ -9,7 +9,7 @@ set "BUILD_DIR=%PROJECT_ROOT%\build"
 set "APP_NAME=llm_test_app"
 
 echo ====================================
-echo Starting Build and Run Process
+echo Starting Build Process
 echo ====================================
 echo.
 
@@ -67,6 +67,13 @@ if %errorlevel% neq 0 (
 )
 popd
 echo Build Done!
+echo.
+
+
+
+echo ====================================
+echo Starting Run Process
+echo ====================================
 echo.
 
 :: --- Step 4: Run the Application ---

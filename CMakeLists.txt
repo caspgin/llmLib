@@ -16,7 +16,6 @@ if(NOT OPENSSL_ROOT_DIR)
     message(FATAL_ERROR "OPENSSL_ROOT_DIR environment variable is not set.")
 endif()
 
-message(LOG "Compiler used is: ${CMAKE_CXX_COMPILER} ") 
 
 add_subdirectory(extern/json)
 add_subdirectory(extern/cpp-httplib EXCLUDE_FROM_ALL)
@@ -31,7 +30,7 @@ ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_LIBRARY}
 
 target_include_directories(llm_client PUBLIC
 	$<BUILD_INTERFACE:${OPENSSL_ROOT_DIR}/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src> # Public for users of llm_client
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/cpp-httplib> 
     $<INSTALL_INTERFACE:include> # For installation if you go that route
 )
