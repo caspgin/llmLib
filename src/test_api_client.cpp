@@ -1,29 +1,31 @@
 #include <iostream>
-#include <stdexcept>
+#include <ostream>
+#include <string>
 
+#include "error/LLMError.h"
 #include "llm_api_client.h"
 
 int main() {
-  try {
-    CallGemini("Make a list of ingredients for a simple apple pie");
+	std::string fullData;
+	try {
+		std::cout << "Test Start" << std::endl;
+		//	CallGemini("Make a list of ingredients for a simple apple pie");
+		CallGeminiStream(
+			"Get me a list of most common tools in kitchen in both english and "
+			"french. no more than 5 items.",
+			[&](const std::string& chunk) { fullData += chunk; },
+			[&]() { std::cout << fullData << std::endl; });
 
-  } catch (const CustomError &e) {
-    std::cout << e.errorType << e.what() << std::endl;
-    return 1;
-  } catch (const std::runtime_error &e) {
-    // This block catches the specific exception for "GetApiKey"
-    std::cerr << "Runtime Error: " << e.what() << std::endl;
-    return 1;
-  } catch (const std::exception &e) {
-    // This block catches any other standard C++ exception
-    // that derives from std::exception.
-    std::cerr << "Caught a standard exception: " << e.what() << std::endl;
-    return 1;
-  } catch (...) {
-    // This is the catch-all for anything else, even non-standard
-    // exceptions. Use this as a last resort.
-    std::cerr << "Caught an unknown, non-standard error." << std::endl;
-    return 1;
-  }
-  return 0;
+		std::cout << "Test Complete" << std::endl;
+	} catch (const LLMError& e) {
+		std::cout << e.getErrorType() << "\t" << e.what() << std::endl;
+		return 1;
+	} catch (const std::exception& e) {
+		std::cerr << "Caught a standard exception: " << e.what() << std::endl;
+		return 1;
+	} catch (...) {
+		std::cerr << "Caught an unknown, non-standard error." << std::endl;
+		return 1;
+	}
+	return 0;
 }

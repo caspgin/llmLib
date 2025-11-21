@@ -35,8 +35,14 @@ target_include_directories(llm_client PUBLIC
     $<INSTALL_INTERFACE:include> # For installation if you go that route
 )
 
-#add_executable(llm_test_app src/test_api_client.cpp)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    option(LLMLIB_BUILD_TESTS "Build the testing tree." ON)
+else()
+    option(LLMLIB_BUILD_TESTS "Build the testing tree." OFF)
+endif()
 
-#target_link_libraries(llm_test_app PRIVATE
-#    llm_client
-#)
+if(LLMLIB_BUILD_TESTS)
+    add_executable(llm_test_app src/test_api_client.cpp)
+    target_link_libraries(llm_test_app PRIVATE llm_client)
+endif()
+
