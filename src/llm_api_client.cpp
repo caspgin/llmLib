@@ -1,19 +1,100 @@
 #include "llm_api_client.h"
 #include "error/LLMError.h"
 #include "nlohmann/json_fwd.hpp"
-#include "openssl/x509.h"
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
-#include <string>
 #define CPPHTTBLIB_OPENSSL_SUPPORT
 #include "httplib.h"
 #include "nlohmann/json.hpp"
 
-const std::string ENV_VAR_NAME = "GEMINI_API_KEY";
+LlmClient::LlmClient() : m_stop(false) {
+	m_workerThread = std::thread(&LlmClient::WorkerLoop, this);
+}
 
-std::string GetApiKey() {
-	const char* enviKey = std::getenv(ENV_VAR_NAME.c_str());
+LlmClient::~LlmClient() {
+	m_stop = true;
+	m_cv.notify_one();
+	if (m_workerThread.joinable()) {
+		m_workerThread.join();
+	}
+}
+
+void LlmClient::WorkerLoop() {
+	while (!m_stop) {
+		std::string prompt;
+		{
+			std::unique_lock<std::mutex> lock(m_mutex);
+			m_cv.wait(lock, [this]() {
+				return m_stop || !this->m_currentPrompt.empty();
+			});
+
+			if (m_stop) {
+				break;
+			}
+
+			prompt = m_currentPrompt;
+		}
+		try {
+			CallGeminiStream(
+				prompt,
+				[this](const std::string& chunk) {
+					std::lock_guard<std::mutex> lock(m_mutex);
+					this->m_responseQueue.push(
+						{LlmResponse::Status::RUNNING, chunk});
+				},
+				[this]() {
+					std::lock_guard<std::mutex> lock(m_mutex);
+					this->m_currentPrompt.clear();
+					this->m_responseQueue.push(
+						{LlmResponse::Status::FINISHED, ""});
+				});
+		} catch (const LLMError& llmError) {
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_responseQueue.push({LlmResponse::Status::FALIURE, "", llmError});
+		} catch (const std::exception& stdError) {
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_responseQueue.push(
+				{LlmResponse::Status::FALIURE, "",
+				 LLMError(stdError.what(), "Standard Exception",
+						  LLMErroCode::UNKNOW)});
+		} catch (...) {
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_responseQueue.push({LlmResponse::Status::FALIURE, "",
+								  LLMError("Unknown catastrophy.", "Unknown",
+										   LLMErroCode::UNKNOW)});
+		}
+	}
+}
+
+bool LlmClient::SendPrompt(const std::string& prompt) {
+
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		m_currentPrompt = prompt;
+		std::queue<LlmResponse> emptyQueue;
+		m_responseQueue.swap(emptyQueue);
+	}
+
+	m_cv.notify_one();
+	return true;
+}
+
+LlmResponse LlmClient::GetNextResponse() {
+
+	std::lock_guard<std::mutex> lock(m_mutex);
+	if (m_responseQueue.empty()) {
+		return {LlmResponse::Status::WAITING, ""};
+	}
+
+	LlmResponse output = m_responseQueue.front();
+	m_responseQueue.pop();
+
+	return output;
+}
+
+std::string LlmClient::GetApiKey() {
+	const std::string ENV_VAR_NAME = "GEMINI_API_KEY";
+	const char*		  enviKey	   = std::getenv(ENV_VAR_NAME.c_str());
 
 	if (enviKey == nullptr || std::string(enviKey).length() == 0) {
 		throw LLMError("Did not find environment key. Please add  \"" +
@@ -25,7 +106,7 @@ std::string GetApiKey() {
 	return std::string(enviKey);
 }
 
-std::string CallGemini(const std::string& prompt) {
+std::string LlmClient::CallGemini(const std::string& prompt) {
 	const std::string APIKEY	 = GetApiKey();
 	const std::string LLM_DOMAIN = "generativelanguage.googleapis.com";
 	const std::string LLM_PATH =
@@ -74,9 +155,9 @@ std::string CallGemini(const std::string& prompt) {
 	return responseText;
 }
 
-void CallGeminiStream(const std::string&					  prompt,
-					  std::function<void(const std::string&)> onChunk,
-					  std::function<void()>					  onComplete) {
+void LlmClient::CallGeminiStream(
+	const std::string& prompt, std::function<void(const std::string&)> onChunk,
+	std::function<void()> onComplete) {
 
 	const std::string APIKEY	 = GetApiKey();
 	const std::string LLM_DOMAIN = "generativelanguage.googleapis.com";
@@ -111,7 +192,7 @@ void CallGeminiStream(const std::string&					  prompt,
 				if (!rawChunk.empty() && rawChunk.back() == ',') {
 					rawChunk.pop_back();
 				}
-				if(rawChunk.empty()){
+				if (rawChunk.empty()) {
 					return true;
 				}
 				nlohmann::json response = nlohmann::json::parse(rawChunk);
@@ -123,7 +204,6 @@ void CallGeminiStream(const std::string&					  prompt,
 				throw LLMError(std::string(e.what()), "Parsing Error",
 										   LLMErroCode::PARSE_ERROR);
 			}
-			
 		},
 		nullptr);
 

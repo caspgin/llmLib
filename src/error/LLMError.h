@@ -10,7 +10,7 @@ enum class LLMErroCode {
 	PARSE_ERROR,
 	TIMEOUT_ERROR,
 	UNKNOW,
-
+	INVALID,
 };
 
 class LLMError : public std::exception {
@@ -20,6 +20,7 @@ class LLMError : public std::exception {
 	LLMErroCode code;
 
   public:
+	LLMError() : message(""), type(""), code(LLMErroCode::INVALID) {};
 	LLMError(const std::string& msg, const std::string& type, LLMErroCode code)
 		: message(msg), type(type), code(code) {}
 
